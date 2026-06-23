@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Semiología Médica - Panel Dinámico</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg-primary: #f8fafc;
+    --sidebar-bg: #1e293b;
+    --sidebar-hover: #334155;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --white: #ffffff;
+    --border-color: #e2e8f0;
+    
+    /* Colores por Sistemas */
+    --color-apend: #0284c7;
+    --color-perit: #7c3aed;
+    --color-hep: #ea580c;
+    --color-pan: #2563eb;
+    --color-gast: #16a34a;
+    --color-renal: #b45309;
+    --color-tir: #dc2626;
+    --color-col: #4d7c0f;
+    --color-anexo: #0f766e;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+  body { background: var(--bg-primary); color: var(--text-main); display: flex; min-height: 100vh; overflow-x: hidden; }
+
+  /* VISTA PORTADA DE INICIO */
+  .cover-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 40px 20px;
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    color: var(--white);
+    text-align: center;
+    min-height: 100vh;
+    z-index: 500;
+    position: absolute;
+    top: 0;
+    left: 0;
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+  .cover-container.hidden {
+    opacity: 0;
+    transform: translateY(-100%);
+    pointer-events: none;
+    position: fixed;
+  }
+  .cover-card {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 40px;
+    border-radius: 20px;
+    max-width: 700px;
+    width: 100%;
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+  }
+  .cover-logo-placeholder {
+    width: 100px;
+    height: 100px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    color: #38bdf8;
+    margin: 0 auto 20px auto;
+    border: 2px dashed rgba(255, 255, 255, 0.3);
+  }
+  .cover-card h1 { font-size: 28px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 5px; color: #f1f5f9; }
+  .cover-card h2 { font-size: 18px; color: #38bdf8; font-weight: 500; margin-bottom: 25px; }
+  .cover-details {
+    text-align: left;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 20px 25px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    font-size: 14.5px;
+    line-height: 1.6;
+    border-left: 4px solid #38bdf8;
+  }
+  .cover-details div { margin-bottom: 10px; color: #cbd5e1; }
+  .cover-details strong { color: var(--white); }
+  .cover-details .members-list { white-space: pre-line; padding-left: 5px; margin-top: 5px; color: #94a3b8; }
+  .btn-enter-app {
+    background: #2563eb;
+    color: var(--white);
+    border: none;
+    padding: 14px 35px;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+  }
+  .btn-enter-app:hover { background: #1d4ed8; transform: translateY(-2px); }
+
+  /* MENÚ LATERAL */
+  .sidebar {
+    width: 280px;
+    background: var(--sidebar-bg);
+    color: #f1f5f9;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 100;
+    transition: transform 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 4px 0 10px rgba(0,0,0,0.1);
+  }
+  .sidebar-header { padding: 24px 20px; background: #0f172a; border-bottom: 1px solid #334155; }
+  .sidebar-header h3 { font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+  .sidebar-header p { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+  .sidebar-menu { list-style: none; padding: 15px 10px; flex: 1; overflow-y: auto; }
+  .sidebar-item {
+    padding: 12px 14px;
+    border-radius: 8px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13.5px;
+    transition: all 0.2s ease;
+    color: #cbd5e1;
+  }
+  .sidebar-item:hover, .sidebar-item.active { background: var(--sidebar-hover); color: var(--white); }
+  .sidebar-item i { width: 20px; text-align: center; font-size: 16px; }
+
+  /* CONTENEDOR PRINCIPAL */
+  .main-content { margin-left: 280px; flex: 1; padding: 30px; max-width: 1400px; transition: margin 0.3s ease; }
+
+  /* BARRA DE BÚSQUEDA */
+  .top-bar {
+    background: var(--white);
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    margin-bottom: 25px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+  .search-container { position: relative; width: 100%; }
+  .search-container input {
+    width: 100%;
+    padding: 14px 16px 14px 45px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 15px;
+    background: #f8fafc;
+    outline: none;
+  }
+  .search-container i { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+
+  .filter-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+  .filter-btn {
+    padding: 8px 14px;
+    border-radius: 20px;
+    background: #f1f5f9;
+    border: 1px solid var(--border-color);
+    font-size: 12.5px;
+    cursor: pointer;
+    color: #475569;
+  }
+  .filter-btn.active { background: var(--sidebar-bg); color: var(--white); }
+
+  .alert-box { background: #fffbeb; border-left: 4px solid #f59e0b; padding: 16px; border-radius: 8px; margin-bottom: 25px; font-size: 13.5px; color: #78350f; }
+
+  /* REJILLA DE TARJETAS */
+  .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; margin-bottom: 40px; }
+  .medical-card { background: var(--white); border-radius: 12px; border: 1px solid var(--border-color); overflow: hidden; display: flex; flex-direction: column; position: relative; }
+
+  .card-header { padding: 16px 20px; color: var(--white); display: flex; justify-content: space-between; align-items: center; }
+  .card-header h4 { font-size: 15px; font-weight: 600; padding-right: 50px; }
+  .system-badge { font-size: 10px; background: rgba(255,255,255,0.2); padding: 3px 8px; border-radius: 12px; font-weight: bold; white-space: nowrap; }
+  .card-body { padding: 20px; flex: 1; display: flex; flex-direction: column; gap: 12px; }
+
+  /* Botones de control de tarjeta en Modo Edición */
+  .card-control-box {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: none;
+    gap: 6px;
+    z-index: 10;
+  }
+  body.edit-mode .card-control-box { display: flex; }
+  
+  .card-btn {
+    color: white;
+    border: none;
+    padding: 5px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+  }
+  .edit-card-btn { background: #d97706; }
+  .edit-card-btn:hover { background: #b45309; }
+  .delete-card-btn { background: #ef4444; }
+  .delete-card-btn:hover { background: #dc2626; }
+
+  /* Acordeones */
+  .collapsible-section { border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; }
+  .collapsible-trigger {
+    width: 100%; padding: 12px 14px; background: #f8fafc; border: none; text-align: left;
+    font-size: 13px; font-weight: 600; color: #475569; cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+  }
+  .collapsible-content { max-height: 0; overflow: hidden; transition: max-height 0.2s ease-out; background: var(--white); }
+  .collapsible-content-inner { padding: 14px; font-size: 13px; line-height: 1.5; color: #334155; border-top: 1px solid var(--border-color); }
+  .patologia-text { color: #991b1b; font-weight: 600; }
+  .collapsible-section.active .collapsible-content { max-height: 300px; }
+  .collapsible-section.active .collapsible-trigger i { transform: rotate(180deg); }
+
+  /* Enlace de Video Estilizado en Tarjeta */
+  .video-link-container {
+    margin-top: 5px;
+    padding: 10px 14px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+  }
+  .video-link-container a {
+    color: #16a34a;
+    font-size: 13px;
+    text-decoration: none;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+  .video-link-container a:hover {
+    text-decoration: underline;
+  }
+
+  /* SECCIÓN DE ANEXO */
+  .anexo-container { background: var(--white); padding: 30px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 40px; display: none; }
+  .anexo-container.active { display: block; }
+  .anexo-link-box { margin-top: 20px; padding: 20px; background: #f0fdfa; border: 1px dashed var(--color-anexo); border-radius: 8px; text-align: center; }
+  .anexo-link-box a { color: var(--color-anexo); font-weight: 600; text-decoration: none; font-size: 16px; }
+  .anexo-link-box a:hover { text-decoration: underline; }
+
+  /* HERRAMIENTAS DE EDICIÓN FLOTANTES */
+  .edit-tools { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 1000; }
+  .fab-btn { width: 52px; height: 52px; border-radius: 50%; border: none; color: white; font-size: 20px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; }
+  .btn-toggle-edit { background: #2563eb; }
+  .btn-add-item { background: #16a34a; display: none; }
+  .btn-edit-anexo { background: #0f766e; display: none; }
+  .btn-edit-cover { background: #d97706; display: none; }
+  body.edit-mode .btn-add-item, body.edit-mode .btn-edit-anexo, body.edit-mode .btn-edit-cover { display: flex; }
+
+  /* FORMULARIOS MODALES */
+  .modal { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 15px; }
+  .modal.open { display: flex; }
+  .modal-content { background: white; padding: 25px; border-radius: 12px; width: 100%; max-width: 500px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); color: var(--text-main); text-align: left; }
+  .modal-content h3 { margin-bottom: 15px; color: var(--sidebar-bg); }
+  .form-group { margin-bottom: 15px; display: flex; flex-direction: column; gap: 5px; }
+  .form-group label { font-size: 13px; font-weight: 600; color: #475569; }
+  .form-group input, .form-group select, .form-group textarea { padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px; outline: none; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+  .btn-action { padding: 10px 16px; border-radius: 6px; border: none; font-size: 13.5px; cursor: pointer; font-weight: 500; }
+  .btn-cancel { background: #e2e8f0; color: #475569; }
+  .btn-save { background: #2563eb; color: white; }
+
+  /* BOTÓN VOLVER A PORTADA */
+  .btn-back-cover {
+    padding: 10px 14px; margin-bottom: 15px; background: #334155; color: var(--white);
+    border-radius: 8px; border: none; cursor: pointer; font-size: 12.5px; display: flex; align-items: center; gap: 8px; transition: background 0.2s;
+  }
+  .btn-back-cover:hover { background: #475569; }
+
+  /* COLORES DINÁMICOS */
+  [data-system="apendicitises"] .card-header { background: var(--color-apend); }
+  [data-system="peritonitis"] .card-header { background: var(--color-perit); }
+  [data-system="hepatobiliar"] .card-header { background: var(--color-hep); }
+  [data-system="pancreatico"] .card-header { background: var(--color-pan); }
+  [data-system="gastroduodenal"] .card-header { background: var(--color-gast); }
+  [data-system="renoureteral"] .card-header { background: var(--color-renal); }
+  [data-system="tiroides"] .card-header { background: var(--color-tir); }
+  [data-system="columna"] .card-header { background: var(--color-col); }
+
+  @media (max-width: 992px) {
+    .sidebar { transform: translateX(-100%); }
+    .main-content { margin-left: 0; padding: 15px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="cover-container" id="coverPage">
+  <div class="cover-card">
+    <div class="cover-logo-placeholder">
+      <i class="fa-solid fa-university"></i>
+    </div>
+    <h1 id="lblUniversity">Cargando...</h1>
+    <h2 id="lblSubject">Cargando...</h2>
+    
+    <div class="cover-details">
+      <div><strong>Sede:</strong> <span id="lblSede">Cargando...</span></div>
+      <div><strong>Gestión:</strong> <span id="lblGestion">Cargando...</span></div>
+      <div><strong>Docente:</strong> <span id="lblDocente">Cargando...</span></div>
+      <div><strong>Integrantes:</strong></div>
+      <div class="members-list" id="lblIntegrantes">Cargando integrantes...</div>
+    </div>
+    
+    <button class="btn-enter-app" id="btnEnterApp">Acceder al Panel Dinámico <i class="fa-solid fa-arrow-right"></i></button>
+  </div>
+</div>
+
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <h3><i class="fa-solid fa-user-md"></i> Semiología II</h3>
+    <p>Gestión Dinámica de Contenidos</p>
+  </div>
+  <ul class="sidebar-menu">
+    <li class="sidebar-item active" data-filter="all"><i class="fa-solid fa-border-all"></i> Todos los Sistemas</li>
+    <li class="sidebar-item" data-filter="apendicitises"><i class="fa-solid fa-capsules"></i> Apendicitis Aguda</li>
+    <li class="sidebar-item" data-filter="peritonitis"><i class="fa-solid fa-shield-virus"></i> Irritación Peritoneal</li>
+    <li class="sidebar-item" data-filter="hepatobiliar"><i class="fa-solid fa-liver"></i> Sistema Hepatobiliar</li>
+    <li class="sidebar-item" data-filter="pancreatico"><i class="fa-solid fa-diagram-project"></i> Puntos Pancreáticos</li>
+    <li class="sidebar-item" data-filter="gastroduodenal"><i class="fa-solid fa-stomach"></i> Gastroduodenales</li>
+    <li class="sidebar-item" data-filter="renoureteral"><i class="fa-solid fa-kidneys"></i> Renoureteral y Gineco</li>
+    <li class="sidebar-item" data-filter="tiroides"><i class="fa-solid fa-lungs-virus"></i> Examen Tiroideo</li>
+    <li class="sidebar-item" data-filter="columna"><i class="fa-solid fa-bone"></i> Columna / Neuroortopedia</li>
+    <li class="sidebar-item" data-filter="anexo" style="color: #2dd4bf;"><i class="fa-solid fa-link"></i> ANEXO (Referencias)</li>
+  </ul>
+</nav>
+
+<main class="main-content">
+  <button class="btn-back-cover" id="btnBackCover"><i class="fa-solid fa-arrow-left"></i> Volver a la Portada</button>
+  
+  <header class="top-bar" id="topBarControls">
+    <div class="search-container">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input type="text" id="searchInput" placeholder="Buscar por signo, técnica o patología...">
+    </div>
+    <div class="filter-tags">
+      <button class="filter-btn active" data-filter="all">Todos</button>
+      <button class="filter-btn" data-filter="apendicitises">Apendicitis</button>
+      <button class="filter-btn" data-filter="peritonitis">Peritonitis</button>
+      <button class="filter-btn" data-filter="hepatobiliar">Hepatobiliar</button>
+      <button class="filter-btn" data-filter="pancreatico">Páncreas</button>
+      <button class="filter-btn" data-filter="gastroduodenal">Gástrico</button>
+      <button class="filter-btn" data-filter="renoureteral">Renal</button>
+      <button class="filter-btn" data-filter="tiroides">Tiroides</button>
+      <button class="filter-btn" data-filter="columna">Columna</button>
+      <button class="filter-btn" data-filter="anexo">Anexo</button>
+    </div>
+  </header>
+
+  <section class="anexo-container" id="anexoSection">
+    <h2><i class="fa-solid fa-folder-open" style="color: var(--color-anexo);"></i> Documentación y Enlaces Anexos</h2>
+    <p style="margin-top: 10px; color: var(--text-muted); font-size: 14px;">Espacio reservado para el direccionamiento a fuentes externas, carpetas de estudio o diapositivas complementarias del docente.</p>
+    <div class="anexo-link-box">
+      <a href="#" id="anexoLinkDisplay" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i> Acceder al recurso enlazado</a>
+    </div>
+  </section>
+
+  <section class="cards-grid" id="cardsContainer"></section>
+</main>
+
+<div class="edit-tools">
+  <button class="fab-btn btn-add-item" id="openAddModal" title="Agregar nuevo signo/maniobra"><i class="fa-solid fa-plus"></i></button>
+  <button class="fab-btn btn-edit-anexo" id="openAnexoModal" title="Configurar enlace del Anexo"><i class="fa-solid fa-link"></i></button>
+  <button class="fab-btn btn-edit-cover" id="openCoverModal" title="Editar datos de la Portada"><i class="fa-solid fa-book-open"></i></button>
+  <button class="fab-btn btn-toggle-edit" id="toggleEditMode" title="Activar/Desactivar Modo Edición"><i class="fa-solid fa-pen"></i></button>
+</div>
+
+<div class="modal" id="addModal">
+  <div class="modal-content">
+    <h3 id="modalTitle">Nuevo Signo / Maniobra</h3>
+    <input type="hidden" id="formItemId">
+    <div class="form-group">
+      <label>Sistema / Categoría</label>
+      <select id="formSystem">
+        <option value="apendicitises">Apendicitis Aguda</option>
+        <option value="peritonitis">Irritación Peritoneal y Ascitis</option>
+        <option value="hepatobiliar">Sistema Hepatobiliar</option>
+        <option value="pancreatico">Puntos Pancreáticos</option>
+        <option value="gastroduodenal">Gastroduodenales</option>
+        <option value="renoureteral">Renoureteral y Gineco</option>
+        <option value="tiroides">Examen Tiroideo</option>
+        <option value="columna">Columna / Neuroortopedia</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Nombre del Signo, Maniobra o Punto</label>
+      <input type="text" id="formName" placeholder="Ej: Signo de Blumberg">
+    </div>
+    <div class="form-group">
+      <label>Técnica de Realización / Ubicación</label>
+      <textarea id="formTech" rows="3" placeholder="Describe cómo se ejecuta la exploración..."></textarea>
+    </div>
+    <div class="form-group">
+      <label>Significado Clínico / Patología Sugerida</label>
+      <textarea id="formPath" rows="2" placeholder="Ej: Dolor agudo al soltar → Irritación peritoneal"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Enlace del Video Demostrativo (Link URL)</label>
+      <input type="url" id="formVideo" placeholder="Ej: https://youtube.com/watch?v=abcde123">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-action btn-cancel" id="closeAddModal">Cancelar</button>
+      <button class="btn-action btn-save" id="saveNewItem">Guardar Item</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="anexoModal">
+  <div class="modal-content">
+    <h3>Configurar Enlace del Anexo</h3>
+    <div class="form-group">
+      <label>Dirección URL del enlace (Link)</label>
+      <input type="url" id="formAnexoUrl" placeholder="https://ejemplo.com/mis-diapositivas">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-action btn-cancel" id="closeAnexoModal">Cancelar</button>
+      <button class="btn-action btn-save" id="saveAnexoUrl">Actualizar Link</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="coverModal">
+  <div class="modal-content">
+    <h3>Editar Información de Portada</h3>
+    <div class="form-group">
+      <label>Universidad</label>
+      <input type="text" id="formUniversity">
+    </div>
+    <div class="form-group">
+      <label>Curso / Asignatura</label>
+      <input type="text" id="formSubject">
+    </div>
+    <div class="form-group">
+      <label>Sede</label>
+      <input type="text" id="formSede">
+    </div>
+    <div class="form-group">
+      <label>Gestión</label>
+      <input type="text" id="formGestion">
+    </div>
+    <div class="form-group">
+      <label>Docente</label>
+      <input type="text" id="formDocente">
+    </div>
+    <div class="form-group">
+      <label>Integrantes (Nombres y Códigos)</label>
+      <textarea id="formIntegrantes" rows="5" placeholder="Estudiante 1 - Código&#10;Estudiante 2 - Código"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-action btn-cancel" id="closeCoverModal">Cancelar</button>
+      <button class="btn-action btn-save" id="saveCoverData">Actualizar Portada</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==========================================
+// CONFIGURACIÓN DE SUPABASE (REEMPLAZA AQUÍ)
+// ==========================================
+const SUPABASE_URL = "https://grbqkreldeczshblaqaf.supabase.co"; 
+const SUPABASE_ANON_KEY = "sb_publishable_k3v_dlhqqGaqj5Mwy9bZow_h_nOW7YM";
+
+const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const SECRET_PASSWORD = "admin123";
+
+let semiologiaData = [];
+let currentFilter = "all";
+let searchTerms = "";
+let isEditMode = false;
+let anexoUrl = "#";
+
+const cardsContainer = document.getElementById("cardsContainer");
+const searchInput = document.getElementById("searchInput");
+const filterButtons = document.querySelectorAll(".filter-btn, .sidebar-item");
+const anexoSection = document.getElementById("anexoSection");
+const anexoLinkDisplay = document.getElementById("anexoLinkDisplay");
+const topBarControls = document.getElementById("topBarControls");
+const coverPage = document.getElementById("coverPage");
+
+// 1. Cargar datos inicialmente desde Supabase
+async function loadDataFromSupabase() {
+  try {
+    // Cargar Signos/Maniobras
+    const { data: dbData, error: dbError } = await _supabase
+      .from('semiologia_db')
+      .select('*')
+      .order('id', { ascending: true });
+    
+    if (dbError) throw dbError;
+    semiologiaData = dbData || [];
+
+    // Cargar Portada (asumimos id = 1)
+    const { data: coverData, error: coverError } = await _supabase
+      .from('semiologia_cover')
+      .select('*')
+      .eq('id', 1)
+      .single();
+
+    if (!coverError && coverData) {
+      document.getElementById("lblUniversity").textContent = coverData.university;
+      document.getElementById("lblSubject").textContent = coverData.subject;
+      document.getElementById("lblSede").textContent = coverData.sede;
+      document.getElementById("lblGestion").textContent = coverData.gestion;
+      document.getElementById("lblDocente").textContent = coverData.docente;
+      document.getElementById("lblIntegrantes").textContent = coverData.integrantes;
+    }
+
+    // Cargar Enlace de Anexo (asumimos id = 1)
+    const { data: anexoData, error: anexoError } = await _supabase
+      .from('anexo_url')
+      .select('*')
+      .eq('id', 1)
+      .single();
+
+    if (!anexoError && anexoData) {
+      anexoUrl = anexoData.url || "#";
+    }
+
+    render();
+  } catch (error) {
+    console.error("Error al cargar datos de Supabase:", error.message);
+  }
+}
+
+// 2. Escuchar cambios en Tiempo Real
+function setupRealtimePreservation() {
+  _supabase
+    .channel('schema-db-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'semiologia_db' }, () => {
+      loadDataFromSupabase();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'semiologia_cover' }, () => {
+      loadDataFromSupabase();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'anexo_url' }, () => {
+      loadDataFromSupabase();
+    })
+    .subscribe();
+}
+
+function render() {
+  cardsContainer.innerHTML = "";
+  
+  if (currentFilter === "anexo") {
+    anexoSection.classList.add("active");
+    topBarControls.style.display = "none";
+    cardsContainer.style.display = "none";
+    anexoLinkDisplay.href = anexoUrl;
+    anexoLinkDisplay.innerHTML = anexoUrl === "#" ? "<i class='fa-solid fa-link-slash'></i> Ningún link configurado aún (Entra en modo edición para añadirlo)" : `<i class='fa-solid fa-arrow-up-right-from-square'></i> Ir al recurso: ${anexoUrl}`;
+    return;
+  } else {
+    anexoSection.classList.remove("active");
+    topBarControls.style.display = "flex";
+    cardsContainer.style.display = "grid";
+  }
+
+  const filteredData = semiologiaData.filter(item => {
+    const matchesFilter = (currentFilter === "all" || item.system === currentFilter);
+    const matchesSearch = item.name.toLowerCase().includes(searchTerms) || 
+                          item.tech.toLowerCase().includes(searchTerms) || 
+                          item.path.toLowerCase().includes(searchTerms);
+    return matchesFilter && matchesSearch;
+  });
+
+  filteredData.forEach(item => {
+    const card = document.createElement("div");
+    card.className = "medical-card";
+    card.setAttribute("data-system", item.system);
+    
+    const videoSectionHtml = (item.video && item.video.trim() !== "") 
+      ? `<div class="video-link-container">
+          <a href="${item.video}" target="_blank">
+            <i class="fa-solid fa-circle-play" style="font-size: 16px;"></i> Ver Video Demostrativo
+          </a>
+         </div>`
+      : "";
+    
+    card.innerHTML = `
+      <div class="card-control-box">
+        <button class="card-btn edit-card-btn" onclick="openEditItem(${item.id})"><i class="fa-solid fa-marker"></i> Editar</button>
+        <button class="card-btn delete-card-btn" onclick="deleteItem(${item.id})"><i class="fa-solid fa-trash"></i> Eliminar</button>
+      </div>
+      <div class="card-header">
+        <h4>${item.name}</h4>
+        <span class="system-badge">${item.system_label || item.systemLabel}</span>
+      </div>
+      <div class="card-body">
+        <div class="collapsible-section">
+          <button class="collapsible-trigger">
+            <span><i class="fa-solid fa-hand-holding-medical"></i> Técnica de Exploración</span>
+            <i class="fa-solid fa-chevron-down"></i>
+          </button>
+          <div class="collapsible-content">
+            <div class="collapsible-content-inner">${item.tech}</div>
+          </div>
+        </div>
+        <div class="collapsible-section">
+          <button class="collapsible-trigger">
+            <span><i class="fa-solid fa-stethoscope"></i> Hallazgo Positivo / Patología</span>
+            <i class="fa-solid fa-chevron-down"></i>
+          </button>
+          <div class="collapsible-content">
+            <div class="collapsible-content-inner patologia-text">${item.path}</div>
+          </div>
+        </div>
+        ${videoSectionHtml}
+      </div>
+    `;
+    cardsContainer.appendChild(card);
+  });
+
+  initCollapsibles();
+}
+
+function initCollapsibles() {
+  document.querySelectorAll(".collapsible-trigger").forEach(trigger => {
+    trigger.onclick = function() {
+      const section = this.parentElement;
+      const isAlreadyActive = section.classList.contains("active");
+      
+      section.parentElement.querySelectorAll(".collapsible-section").forEach(s => {
+        s.classList.remove("active");
+        s.querySelector(".collapsible-content").style.maxHeight = null;
+      });
+
+      if (!isAlreadyActive) {
+        section.classList.add("active");
+        const content = section.querySelector(".collapsible-content");
+        content.style.maxHeight = content.scrollHeight + "px";
+      }
+    };
+  });
+}
+
+document.getElementById("btnEnterApp").addEventListener("click", () => coverPage.classList.add("hidden"));
+document.getElementById("btnBackCover").addEventListener("click", () => coverPage.classList.remove("hidden"));
+
+document.getElementById("toggleEditMode").addEventListener("click", function() {
+  if (!isEditMode) {
+    const passwordInput = prompt("Introduce la contraseña para habilitar el modo edición:");
+    if (passwordInput === SECRET_PASSWORD) {
+      isEditMode = true;
+    } else {
+      alert("Contraseña incorrecta. Acceso denegado.");
+      return;
+    }
+  } else {
+    isEditMode = false;
+  }
+  
+  document.body.classList.toggle("edit-mode", isEditMode);
+  this.style.background = isEditMode ? "#ef4444" : "#2563eb";
+  this.innerHTML = isEditMode ? "<i class='fa-solid fa-xmark'></i>" : "<i class='fa-solid fa-pen'></i>";
+});
+
+// Eliminar ítem en Supabase
+window.deleteItem = async function(id) {
+  if(confirm("¿Estás seguro de que deseas eliminar permanentemente esta maniobra/signo?")) {
+    const { error } = await _supabase.from('semiologia_db').delete().eq('id', id);
+    if (error) alert("Error al eliminar: " + error.message);
+  }
+};
+
+const addModal = document.getElementById("addModal");
+const anexoModal = document.getElementById("anexoModal");
+const coverModal = document.getElementById("coverModal");
+
+document.getElementById("openAddModal").addEventListener("click", () => {
+  document.getElementById("modalTitle").textContent = "Nuevo Signo / Maniobra";
+  document.getElementById("formItemId").value = "";
+  document.getElementById("formName").value = "";
+  document.getElementById("formTech").value = "";
+  document.getElementById("formPath").value = "";
+  document.getElementById("formVideo").value = "";
+  addModal.classList.add("open");
+});
+
+document.getElementById("closeAddModal").addEventListener("click", () => addModal.classList.remove("open"));
+
+document.getElementById("openAnexoModal").addEventListener("click", () => {
+  document.getElementById("formAnexoUrl").value = anexoUrl;
+  anexoModal.classList.add("open");
+});
+document.getElementById("closeAnexoModal").addEventListener("click", () => anexoModal.classList.remove("open"));
+
+document.getElementById("openCoverModal").addEventListener("click", async () => {
+  const { data: coverData } = await _supabase.from('semiologia_cover').select('*').eq('id', 1).single();
+  if (coverData) {
+    document.getElementById("formUniversity").value = coverData.university;
+    document.getElementById("formSubject").value = coverData.subject;
+    document.getElementById("formSede").value = coverData.sede;
+    document.getElementById("formGestion").value = coverData.gestion;
+    document.getElementById("formDocente").value = coverData.docente;
+    document.getElementById("formIntegrantes").value = coverData.integrantes;
+  }
+  coverModal.classList.add("open");
+});
+document.getElementById("closeCoverModal").addEventListener("click", () => coverModal.classList.remove("open"));
+
+window.openEditItem = function(id) {
+  const item = semiologiaData.find(i => i.id === id);
+  if (!item) return;
+
+  document.getElementById("modalTitle").textContent = "Modificar Signo / Maniobra";
+  document.getElementById("formItemId").value = item.id;
+  document.getElementById("formSystem").value = item.system;
+  document.getElementById("formName").value = item.name;
+  document.getElementById("formTech").value = item.tech;
+  document.getElementById("formPath").value = item.path;
+  document.getElementById("formVideo").value = item.video || "";
+
+  addModal.classList.add("open");
+};
+
+// Guardar los datos de la Portada en Supabase
+document.getElementById("saveCoverData").addEventListener("click", async () => {
+  const updatedCover = {
+    university: document.getElementById("formUniversity").value || "Universidad de Aquino Bolivia",
+    subject: document.getElementById("formSubject").value || "Semiología II",
+    sede: document.getElementById("formSede").value || "Cochabamba",
+    gestion: document.getElementById("formGestion").value || "2026 - 1",
+    docente: document.getElementById("formDocente").value || "",
+    integrantes: document.getElementById("formIntegrantes").value || ""
+  };
+
+  const { error } = await _supabase.from('semiologia_cover').upsert({ id: 1, ...updatedCover });
+  if (error) alert("Error al actualizar la portada: " + error.message);
+  coverModal.classList.remove("open");
+});
+
+// Guardar o actualizar ítem médico en Supabase
+document.getElementById("saveNewItem").addEventListener("click", async () => {
+  const idValue = document.getElementById("formItemId").value;
+  const name = document.getElementById("formName").value;
+  const tech = document.getElementById("formTech").value;
+  const path = document.getElementById("formPath").value;
+  const video = document.getElementById("formVideo").value;
+  const selectElement = document.getElementById("formSystem");
+  const system = selectElement.value;
+  const system_label = selectElement.options[selectElement.selectedIndex].text;
+
+  if(!name || !tech || !path) {
+    alert("Por favor completa todos los campos del formulario.");
+    return;
+  }
+
+  const record = { system, system_label, name, tech, path, video };
+
+  let error;
+  if (idValue) {
+    // Actualizar registro existente
+    ({ error } = await _supabase.from('semiologia_db').update(record).eq('id', idValue));
+  } else {
+    // Insertar nuevo registro
+    ({ error } = await _supabase.from('semiologia_db').insert([record]));
+  }
+
+  if (error) {
+    alert("Error al guardar: " + error.message);
+  } else {
+    addModal.classList.remove("open");
+  }
+});
+
+// Guardar el enlace personalizado del anexo en Supabase
+document.getElementById("saveAnexoUrl").addEventListener("click", async () => {
+  const urlValue = document.getElementById("formAnexoUrl").value || "#";
+  const { error } = await _supabase.from('anexo_url').upsert({ id: 1, url: urlValue });
+  if (error) alert("Error al guardar el anexo: " + error.message);
+  anexoModal.classList.remove("open");
+});
+
+searchInput.addEventListener("input", (e) => {
+  searchTerms = e.target.value.toLowerCase();
+  render();
+});
+
+filterButtons.forEach(btn => {
+  btn.addEventListener("click", function() {
+    currentFilter = this.getAttribute("data-filter");
+    document.querySelectorAll(".filter-btn, .sidebar-item").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(`[data-filter="${currentFilter}"]`).forEach(b => b.classList.add("active"));
+    render();
+  });
+});
+
+// Inicialización del flujo remoto
+loadDataFromSupabase();
+setupRealtimePreservation();
+</script>
+</body>
+</html>
